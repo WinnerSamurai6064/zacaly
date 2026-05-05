@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epzin — Precision Image Studio</title>
+  <meta name="description" content="Epzin: In-browser image upscaler, colour fixer, ICC profile embedder. No uploads. No AI servers. Fully private." />
+
+  <!-- COI ServiceWorker for SharedArrayBuffer (fingerprint-safe) -->
+  <script src="coi-serviceworker.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ── HEADER ────────────────────────────────── -->
+  <header>
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM17.5 14l3.5 7h-7l3.5-7z"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <h1>Epzin</h1>
+      <p>Precision Image Studio</p>
+    </div>
+    <div class="privacy-badge">100% In-Browser · Private</div>
+  </header>
+
+  <!-- ── DROP ZONE ─────────────────────────────── -->
+  <div id="drop-zone" role="button" tabindex="0" aria-label="Upload image">
+    <canvas id="preview-canvas"></canvas>
+    <div class="drop-hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      <strong>Drop image here</strong>
+      <span>or click to upload — PNG, JPEG, WebP, BMP supported</span>
+      <span style="font-size:10px;color:var(--text-lo);margin-top:4px;">You can also paste from clipboard</span>
+    </div>
+  </div>
+
+  <!-- Upload action bar -->
+  <div class="upload-actions">
+    <button class="btn-ghost" id="btn-upload">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Choose File
+    </button>
+    <button class="btn-ghost" id="btn-clear">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14H6L5 6"/>
+        <path d="M10 11v6M14 11v6"/>
+        <path d="M9 6V4h6v2"/>
+      </svg>
+      Clear
+    </button>
+  </div>
+  <input type="file" id="file-input" accept="image/*" />
+
+  <!-- Image info strip -->
+  <div id="image-info">
+    <strong id="info-name">—</strong>
+    <div class="info-sep"></div>
+    <span id="info-dim">—</span>
+    <div class="info-sep"></div>
+    <span id="info-size">—</span>
+  </div>
+
+  <!-- ── TAB NAV ────────────────────────────────── -->
+  <div class="tab-nav" role="tablist">
+    <button class="tab-btn active" data-tab="upscale" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 3 21 3 21 9"/>
+        <polyline points="9 21 3 21 3 15"/>
+        <line x1="21" y1="3" x2="14" y2="10"/>
+        <line x1="3" y1="21" x2="10" y2="14"/>
+      </svg>
+      <span>Upscale</span>
+    </button>
+    <button class="tab-btn" data-tab="colorfix" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <span>ColorFix</span>
+    </button>
+    <button class="tab-btn" data-tab="hardware" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+        <line x1="12" y1="18" x2="12.01" y2="18"/>
+      </svg>
+      <span>Hardware</span>
+    </button>
+    <button class="tab-btn" data-tab="export" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      <span>Export</span>
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 1: UPSCALE
+  ═══════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-upscale">
+
+    <!-- Resize mode -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+        </div>
+        <h3>Resize Mode</h3>
+      </div>
+
+      <div class="radio-group" style="margin-bottom:16px;">
+        <div class="radio-option">
+          <input type="radio" name="resize-mode" id="mode-scale" value="scale" checked />
+          <label for="mode-scale">By Scale Factor</label>
+        </div>
+        <div class="radio-option">
+          <input type="radio" name="resize-mode" id="mode-custom" value="custom" />
+          <label for="mode-custom">Custom Resolution</label>
+        </div>
+      </div>
+
+      <!-- Scale factor row -->
+      <div id="scale-row">
+        <div class="slider-row">
+          <label>Scale Factor</label>
+          <input type="range" id="scale-slider" min="1" max="8" step="0.5" value="2" />
+          <span class="slider-val" id="scale-val">2.0×</span>
+        </div>
+      </div>
+
+      <!-- Custom dims -->
+      <div id="custom-dims" style="display:none;">
+        <div class="input-row">
+          <div class="input-group">
+            <label for="w-input">Width (px)</label>
+            <input type="number" id="w-input" value="1920" min="1" max="16384" />
+          </div>
+          <div class="input-group">
+            <label for="h-input">Height (px)</label>
+            <input type="number" id="h-input" value="1080" min="1" max="16384" />
+          </div>
+        </div>
+        <p style="font-size:11px;color:var(--text-lo);">Aspect ratio locked. Edit either dimension.</p>
+      </div>
+    </div>
+
+    <!-- Algorithm -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h3>Algorithm</h3>
+      </div>
+
+      <label for="algo-select">Resampling Method</label>
+      <select id="algo-select">
+        <option value="lanczos">Lanczos (High Quality)</option>
+        <option value="bicubic">Bicubic (Smooth)</option>
+        <option value="nearest">Nearest Neighbor (Retro / Pixel Art)</option>
+        <option value="resrgan">R-ESRGAN Style (Sharpen Pass)</option>
+      </select>
+
+      <!-- Noise control: only visible for resrgan -->
+      <div id="noise-row" class="mt14" style="display:none;">
+        <div class="slider-row">
+          <label>Noise Suppression</label>
+          <input type="range" id="noise-slider" min="0" max="100" step="5" value="20" />
+          <span class="slider-val" id="noise-val">20</span>
+        </div>
+        <p style="font-size:11px;color:var(--text-lo);">Higher = less sharpening, less noise amplification.</p>
+      </div>
+    </div>
+
+  </div><!-- /tab-upscale -->
+
+  <!-- ══════════════════════════════════════════
+       TAB 2: COLORFIX
+  ═══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-colorfix">
+
+    <!-- Fixes -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+            <path d="M12 2a10 10 0 1 0 10 10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h3>Fixes</h3>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <strong>Fix Flat Lighting (CLAHE)</strong>
+          <span>Adaptive contrast enhancement — recovers shadow detail without blowing highlights.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-clahe" checked />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <strong>Add Film Grain (Monochromatic)</strong>
+          <span>Identical luminance noise on R/G/B — no colour speckling, emulates analogue texture.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-grain" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <!-- Grain amount slider -->
+      <div id="grain-amount-row" class="mt14" style="display:none;">
+        <div class="slider-row">
+          <label>Grain Amount</label>
+          <input type="range" id="grain-slider" min="1" max="80" step="1" value="25" />
+          <span class="slider-val" id="grain-val">25</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ICC Profiles -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="2"/>
+            <path d="M20.2 8.8a9 9 0 1 0 .6 6.4"/>
+            <path d="M16.2 9.8a5 5 0 1 0 .4 3.6"/>
+          </svg>
+        </div>
+        <h3>ICC Colour Profile</h3>
+      </div>
+      <p style="font-size:11px;color:var(--text-lo);margin-bottom:14px;">
+        Profile is embedded into the exported file. All profiles are generated mathematically in-browser — no .icc files needed.
+      </p>
+
+      <div class="icc-grid">
+        <div class="icc-option">
+          <input type="radio" name="icc-profile" id="icc-srgb" value="sRGB" checked />
+          <label for="icc-srgb">
+            <strong>sRGB</strong>
+            <span>Stock Standard · IEC 61966-2-1 · Universal web compatibility</span>
+          </label>
+        </div>
+        <div class="icc-option">
+          <input type="radio" name="icc-profile" id="icc-adobe" value="AdobeRGB1998" />
+          <label for="icc-adobe">
+            <strong>Adobe RGB (1998)</strong>
+            <span>Wide gamut · D65 · Print/stock photography</span>
+          </label>
+        </div>
+        <div class="icc-option">
+          <input type="radio" name="icc-profile" id="icc-apple" value="AppleRGB" />
+          <label for="icc-apple">
+            <strong>Apple RGB</strong>
+            <span>Legacy Apple · γ 1.8 · Classic macOS look</span>
+          </label>
+        </div>
+        <div class="icc-option">
+          <input type="radio" name="icc-profile" id="icc-colormatch" value="ColorMatchRGB" />
+          <label for="icc-colormatch">
+            <strong>ColorMatch RGB</strong>
+            <span>Radius PressView · D50 · Proofing / press</span>
+          </label>
+        </div>
+      </div>
+
+      <p class="mt8" style="font-size:10px;color:var(--text-lo);">
+        ⚠️ AdobeRGB embedded images look washed-out in browsers that ignore ICC profiles. Use sRGB for web delivery.
+      </p>
+    </div>
+
+  </div><!-- /tab-colorfix -->
+
+  <!-- ══════════════════════════════════════════
+       TAB 3: HARDWARE FILTERS
+  ═══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-hardware">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+            <rect x="5" y="2" width="14" height="20" rx="2"/>
+            <circle cx="12" cy="18" r="1"/>
+          </svg>
+        </div>
+        <h3>Hardware Simulation</h3>
+      </div>
+      <p style="font-size:11px;color:var(--text-lo);margin-bottom:16px;">
+        Simulates the colour science and sensor characteristics of real camera hardware entirely in JS. Applied after all other processing. No EXIF fingerprinting — purely pixel-level transforms.
+      </p>
+
+      <div class="hw-chips">
+
+        <!-- None -->
+        <div class="hw-chip" id="chip-none">
+          <input type="radio" name="hw-filter" value="none" id="hw-none" checked />
+          <div class="hw-chip-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+          </div>
+          <div class="hw-chip-text">
+            <strong>No Filter</strong>
+            <span>Output as processed — no hardware colour grading applied.</span>
+          </div>
+          <div class="hw-chip-check"></div>
+        </div>
+
+        <!-- iPhone 6 -->
+        <div class="hw-chip" id="chip-iphone6">
+          <input type="radio" name="hw-filter" value="iphone6" id="hw-iphone6" />
+          <div class="hw-chip-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+              <rect x="5" y="2" width="14" height="20" rx="2"/>
+              <line x1="9" y1="7" x2="15" y2="7"/>
+              <circle cx="12" cy="18" r="1"/>
+            </svg>
+          </div>
+          <div class="hw-chip-text">
+            <strong>iPhone 6 (8MP, f/2.2)</strong>
+            <span>Warm cast · highlight clipping · barrel vignette · 2014 sensor feel.</span>
+          </div>
+          <div class="hw-chip-check"></div>
+        </div>
+
+        <!-- iPhone 6s -->
+        <div class="hw-chip" id="chip-iphone6s">
+          <input type="radio" name="hw-filter" value="iphone6s" id="hw-iphone6s" />
+          <div class="hw-chip-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+              <rect x="5" y="2" width="14" height="20" rx="2"/>
+              <line x1="9" y1="7" x2="15" y2="7"/>
+              <circle cx="12" cy="18" r="1"/>
+              <line x1="9" y1="5" x2="15" y2="5"/>
+            </svg>
+          </div>
+          <div class="hw-chip-text">
+            <strong>iPhone 6s (12MP, f/2.2)</strong>
+            <span>Cooler · better highlight recovery · lifted shadows · 2015 colour accuracy.</span>
+          </div>
+          <div class="hw-chip-check"></div>
+        </div>
+
+      </div><!-- /hw-chips -->
+
+      <div class="mt14" style="padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text-lo);line-height:1.7;">
+        🔒 <strong style="color:var(--text);">Privacy note:</strong> These filters operate purely on pixel data using mathematical colour transforms. No EXIF metadata is written, no device fingerprint is embedded. Your output file is clean.
+      </div>
+    </div>
+
+  </div><!-- /tab-hardware -->
+
+  <!-- ══════════════════════════════════════════
+       TAB 4: EXPORT
+  ═══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-export">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <h3>Output Format</h3>
+      </div>
+
+      <label for="fmt-select">File Format</label>
+      <select id="fmt-select">
+        <option value="png">PNG — Lossless, full ICC support</option>
+        <option value="jpeg">JPEG — Smaller file, high quality (Q95)</option>
+      </select>
+
+      <div class="mt14" style="padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text-lo);line-height:1.8;">
+        <div class="flex-between" style="margin-bottom:6px;">
+          <span>ICC profile embedding</span>
+          <span style="color:var(--green);">✓ Always on</span>
+        </div>
+        <div class="flex-between" style="margin-bottom:6px;">
+          <span>EXIF metadata</span>
+          <span style="color:var(--green);">✗ Never written</span>
+        </div>
+        <div class="flex-between" style="margin-bottom:6px;">
+          <span>Server upload</span>
+          <span style="color:var(--green);">✗ Never happens</span>
+        </div>
+        <div class="flex-between">
+          <span>JPEG quality</span>
+          <span>Q95 (near-lossless)</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-export -->
+
+  <!-- ── PROCESS BUTTON ──────────────────────── -->
+  <button id="process-btn">Process Image</button>
+
+  <!-- Progress -->
+  <div id="progress-wrap">
+    <div class="progress-label">
+      <span id="progress-label">Processing…</span>
+      <span id="progress-pct"></span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <!-- ── RESULT ───────────────────────────────── -->
+  <div id="result-panel">
+    <div class="result-header">
+      <h4>Result</h4>
+      <div class="result-meta">
+        <span><strong id="result-dim">—</strong></span>
+        <span id="result-size">—</span>
+      </div>
+    </div>
+    <img id="result-img" class="result-preview" alt="Processed result" />
+    <div class="result-actions">
+      <a id="download-btn" class="btn-download" href="#" download="epzin_output.png">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download
+      </a>
+      <button class="btn-copy-info" id="copy-info-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        Copy Info
+      </button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Scripts -->
+<script src="js/icc-profiles.js"></script>
+<script src="js/epzin-engine.js"></script>
+<script>
+  // ── Show/hide noise row when resrgan selected ──
+  document.getElementById('algo-select').addEventListener('change', function() {
+    document.getElementById('noise-row').style.display = this.value === 'resrgan' ? '' : 'none';
+  });
+
+  // ── Show/hide grain slider when grain toggle switches ──
+  document.getElementById('toggle-grain').addEventListener('change', function() {
+    document.getElementById('grain-amount-row').style.display = this.checked ? '' : 'none';
+  });
+
+  // ── Chip selection sync (click anywhere on chip) ──
+  document.querySelectorAll('.hw-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const radio = chip.querySelector('input[type="radio"]');
+      radio.checked = true;
+      document.querySelectorAll('.hw-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
+
+  // Init chip-none selected
+  document.getElementById('chip-none').classList.add('selected');
+</script>
+<script src="js/app.js"></script>
+</body>
+</html>
